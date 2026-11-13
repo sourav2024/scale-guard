@@ -1,0 +1,16 @@
+name: Feature request
+description: A new signature, database, ORM, check, or guide
+title: "[feature] "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The performance problem this would catch
+      description: Describe the symptom and the real-world cause. A redacted example helps.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal

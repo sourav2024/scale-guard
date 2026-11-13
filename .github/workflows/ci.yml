@@ -1,0 +1,25 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm run verify
+      - run: node bin/cli.mjs scan evaluations/fixtures/pool-queue-app > /dev/null
+      - run: node bin/cli.mjs install --dir "$RUNNER_TEMP/skills" && test -f "$RUNNER_TEMP/skills/scale-guard/SKILL.md"
+      - run: npm pack --dry-run

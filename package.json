@@ -1,0 +1,58 @@
+{
+  "name": "scale-guard",
+  "version": "1.0.0",
+  "description": "Agent Skill for evidence-first performance and scalability audits of Node.js services on PostgreSQL or MySQL: slow APIs, pool exhaustion, Prisma N+1, event-loop delay, client fan-out.",
+  "type": "module",
+  "bin": {
+    "scale-guard": "bin/cli.mjs"
+  },
+  "files": [
+    "bin/",
+    "skills/",
+    ".claude-plugin/",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "validate": "node tools/validate-skill.mjs",
+    "verify": "npm run validate && npm test",
+    "prepublishOnly": "npm run verify"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "keywords": [
+    "agent-skill",
+    "skills",
+    "claude-code",
+    "codex",
+    "performance",
+    "scalability",
+    "prisma",
+    "postgresql",
+    "mysql",
+    "connection-pool",
+    "nodejs",
+    "latency"
+  ],
+  "author": "sourav2024 (https://github.com/sourav2024)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sourav2024/scale-guard.git"
+  },
+  "homepage": "https://github.com/sourav2024/scale-guard#readme",
+  "bugs": {
+    "url": "https://github.com/sourav2024/scale-guard/issues"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/sourav2024"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

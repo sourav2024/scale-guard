@@ -1,0 +1,35 @@
+name: Wrong or weak diagnosis
+description: The skill pointed at the wrong bottleneck, missed one, or gave unsafe advice
+title: "[diagnosis] "
+labels: ["diagnosis", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        These reports improve the skill the most. **Redact everything private**:
+        no hostnames, credentials, customer data, or company names. Synthetic or
+        anonymised snippets are ideal.
+  - type: textarea
+    id: symptom
+    attributes:
+      label: Symptom and prompt
+      description: What you asked the agent, and the observed symptom (percentiles, when it happens, what dashboards showed).
+    validations:
+      required: true
+  - type: textarea
+    id: got
+    attributes:
+      label: What the skill concluded
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What the real cause turned out to be, and the evidence
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Agent, skill version, stack
+      placeholder: "Claude Code 2.x, scale-guard 1.0.0, Node 22, Prisma 6, MySQL 8"

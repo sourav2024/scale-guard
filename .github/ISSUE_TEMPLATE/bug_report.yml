@@ -1,0 +1,23 @@
+name: Script or CLI bug
+description: scan-repo, conn-budget or the CLI crashed or reported something wrong
+title: "[bug] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Security issue?** Use a [private advisory](https://github.com/sourav2024/scale-guard/security/advisories/new) instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+      description: Include the command you ran. For scanner false positives/negatives, a minimal code snippet that reproduces it.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      placeholder: "scale-guard --version, node --version, OS"
+    validations:
+      required: true

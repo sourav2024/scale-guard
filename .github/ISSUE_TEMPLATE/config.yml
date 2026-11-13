@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or idea
+    url: https://github.com/sourav2024/scale-guard/discussions
+    about: Ask how something works, or float an idea before filing a request.
+  - name: Security vulnerability
+    url: https://github.com/sourav2024/scale-guard/security/advisories/new
+    about: Report privately — please do not open a public issue.

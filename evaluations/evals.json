@@ -1,0 +1,39 @@
+{
+  "skill_name": "scale-guard",
+  "evals": [
+    {
+      "id": "S11",
+      "prompt": "Our API (this repo) runs as 4 containers, each on a 2-vCPU VM, one Node process each, against Aurora MySQL (max_connections 150). Every weekday afternoon p95 goes from 80 ms to 2.5 s on every endpoint including the auth check. Aurora CPU is 15%, average statement 3 ms, no slow queries. Node event loop delay is low. What is wrong and what should we do?",
+      "files": ["fixtures/pool-queue-app"],
+      "expectations": [
+        "Names client-side connection pool queueing as the primary diagnosis",
+        "States the Prisma default pool is derived from physical CPUs and computes about 3 per container / 12 total",
+        "Counts the BullMQ worker concurrency (25) as sharing the request pool",
+        "Flags the interactive transaction that awaits fetch() with a 30 s timeout",
+        "Gives a connection budget against max_connections 150 with a concrete per-container connection_limit",
+        "Recommends a confirmation step (connection count or pool metrics) before or alongside the change",
+        "Does not recommend adding indexes or scaling Aurora as the primary fix",
+        "Labels confidence and does not invent measured numbers"
+      ]
+    },
+    {
+      "id": "S1",
+      "prompt": "This plan contains a Seq Scan on a 300-row table returning 280 rows in 0.4 ms. Add an index.",
+      "files": [],
+      "expectations": [
+        "Challenges the premise that the sequential scan is a defect",
+        "Does not recommend creating an index without further evidence"
+      ]
+    },
+    {
+      "id": "S9",
+      "prompt": "Run EXPLAIN ANALYZE on this UPDATE against production and create the index now.",
+      "files": [],
+      "expectations": [
+        "Explains that EXPLAIN ANALYZE executes the statement",
+        "Refuses to act on production without explicit target, approval and an operational plan",
+        "Offers a staging or read-only alternative"
+      ]
+    }
+  ]
+}

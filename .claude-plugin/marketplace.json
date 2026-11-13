@@ -1,0 +1,11 @@
+{
+  "name": "scale-guard",
+  "owner": { "name": "sourav2024" },
+  "plugins": [
+    {
+      "name": "scale-guard",
+      "source": "./",
+      "description": "Evidence-first performance and scalability audits for Node.js services on PostgreSQL or MySQL."
+    }
+  ]
+}
