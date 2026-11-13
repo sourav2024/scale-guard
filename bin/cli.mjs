@@ -64,6 +64,7 @@ function install(args) {
   mkdirSync(base, { recursive: true });
   cpSync(SKILL, dest, { recursive: true });
   process.stdout.write(`Installed ScaleGuard to ${dest}\n`);
+  process.stdout.write("If it helps you, consider sponsoring: https://github.com/sponsors/sourav2024\n");
   return 0;
 }
 

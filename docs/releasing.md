@@ -10,7 +10,7 @@ Maintainer notes for cutting a release.
 - [ ] **`release` environment** created (Settings → Environments).
 - [ ] **Discussions enabled** — linked from SUPPORT.md and the issue templates.
 - [ ] **Private vulnerability reporting enabled** (Settings → Security).
-- [ ] **GitHub Sponsors** enrolled at [github.com/sponsors](https://github.com/sponsors). `.github/FUNDING.yml`, `package.json` `funding` and the README badge are already in place and stay inert until approval.
+- [x] **GitHub Sponsors** listing is live at <https://github.com/sponsors/sourav2024>. It is wired up in `.github/FUNDING.yml` (Sponsor button), `package.json` `funding` (`npm fund`), the README badge and "Support this project" section, and the CLI's install message.
 - [ ] Repo topics: `agent-skills`, `claude-code`, `performance`, `scalability`, `prisma`, `postgresql`, `mysql`.
 
 ## Pre-flight

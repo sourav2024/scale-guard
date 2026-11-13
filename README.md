@@ -104,6 +104,8 @@ Performance advice is only as good as its evidence. Contributions that add a rep
 
 ScaleGuard is free and MIT-licensed, and it stays that way. If it saved you a week of chasing the wrong bottleneck, you can [sponsor the work on GitHub](https://github.com/sponsors/sourav2024).
 
+Sponsorship funds new database and ORM coverage, more evaluation scenarios, and keeping the guidance current as Prisma, PostgreSQL and MySQL change.
+
 Things that help just as much and cost nothing: starring the repo, filing a good bug report, or telling me where the skill gave a wrong diagnosis.
 
 ## License
