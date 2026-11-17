@@ -1,6 +1,6 @@
 {
   "name": "scale-guard",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Evidence-first performance and scalability audits for Node.js services on PostgreSQL or MySQL.",
   "author": { "name": "sourav2024" },
   "license": "MIT",

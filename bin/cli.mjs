@@ -19,7 +19,7 @@ const HELP = `scale-guard — evidence-first performance & scalability audits fo
 
 Usage:
   npx scale-guard install [--agent claude|codex|agents] [--global] [--dir <path>] [--force]
-  npx scale-guard scan <repo> [--limit N] [--json]
+  npx scale-guard scan <repo> [--json] [--changed-since <ref>] [--fail-on high]  (see: npx scale-guard scan --help)
   npx scale-guard budget --tier <spec> [...]      (see: npx scale-guard budget --help)
   npx scale-guard path                            print the skill directory
   npx scale-guard --version
@@ -38,6 +38,7 @@ function opt(args, name) {
   const i = args.indexOf(name);
   if (i === -1) return undefined;
   const v = args[i + 1];
+  if (v === undefined || v.startsWith("--")) throw new Error(`${name} needs a value`);
   args.splice(i, 2);
   return v;
 }
@@ -47,6 +48,10 @@ function install(args) {
   const dir = opt(args, "--dir");
   const global = flag(args, "--global");
   const force = flag(args, "--force");
+  if (args.length) {
+    process.stderr.write(`Unexpected argument(s): ${args.join(" ")}\n`);
+    return 2;
+  }
   const t = TARGETS[agent];
   if (!t && !dir) {
     process.stderr.write(`Unknown agent "${agent}". Use one of ${Object.keys(TARGETS).join(", ")} or --dir.\n`);
@@ -102,5 +107,10 @@ function main() {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href || process.argv[1]?.endsWith("/scale-guard")) {
-  process.exitCode = main();
+  try {
+    process.exitCode = main();
+  } catch (e) {
+    process.stderr.write(`scale-guard: ${e.message}\n`);
+    process.exitCode = 2;
+  }
 }

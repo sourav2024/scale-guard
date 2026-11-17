@@ -60,12 +60,24 @@ Ask your agent:
 ```bash
 npx scale-guard scan ./my-service
 ```
-Static scan for leads: PrismaClient instances, pool settings (never prints secret values), queue-worker concurrency, interactive transactions with external I/O, queries in loops, unbounded `findMany`, in-memory sorts, client polling. Request-path code is ranked first.
+Static scan for leads, ranked high/medium/low and grouped by deployable:
+
+- **Context:** existing telemetry (prom-client, OpenTelemetry, `/metrics`, …), process model (pm2 instances, `NODE_APP_INSTANCE` gating, cluster, Dockerfile, k8s replicas), PrismaClient instances and `$extends` query hooks, pool settings including env-var-driven ones, queue workers (processors passed by name are resolved across files to see whether they use the DB), scheduled jobs (detected by import: node-cron, cron, node-schedule, croner, Agenda, BullMQ schedulers, `@nestjs/schedule`).
+- **Leads:** queries in loops and `map` callbacks (Prisma, `this.prisma`, raw `pool.query`), uncapped `take`/`limit` from the request, interactive transactions (ranked by loops and query count, external I/O flagged), `findMany` without `take` (ranked by whether the model grows per tenant), socket handlers that query, Redis `KEYS` and ioredis without `commandTimeout`, client polling that actually fetches.
+
+It never prints secret values: real `.env` files are only opened with `--include-env`, and literal URLs in `schema.prisma` are redacted. Generated folders and minified files are skipped.
+
+```bash
+# PR check: only leads on changed lines; exit 1 if any are high
+npx scale-guard scan . --changed-since origin/main --fail-on high
+```
+
+Silence a lead you have reviewed with `// scale-guard-ignore: <reason>` on the same or previous line. `--include`/`--exclude` take globs, and `--hot-models` ranks tables you know are large. See `npx scale-guard scan --help`.
 
 ```bash
 npx scale-guard budget --tier name=api,replicas=3,vcpus=4,workers=70 --max-connections 90 --reserved 10
 ```
-Connection budget across every process type, Prisma's default pool size, Little's-law demand, and the largest safe pool per process.
+Connection budget across every process type, Prisma's default pool size, Little's-law demand, and the largest safe pool per process. Unknown tier keys are rejected (so `replica=3` can't silently become 1). `--from-scan scan.json` takes `scan --json` output and fills in worker concurrency and client count.
 
 ## Safety model
 

@@ -5,7 +5,7 @@ license: MIT
 compatibility: Works with repository-aware coding agents. Database access and runtime telemetry are optional; never assume production access. Bundled scripts need Node.js 18+ and have no dependencies.
 metadata:
   author: sourav2024
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # ScaleGuard — Performance & Scalability Engineer
@@ -35,6 +35,8 @@ Act as a careful senior performance engineer. Investigate the existing system be
 
 Identify, or assume and state: affected route/job/query; environment; percentile, throughput, error rate; when it happens (time of day, deploys, traffic); stack, database engine and version, ORM and version, pooler, cache, process model (cluster/fork/pm2/containers, replicas); what telemetry exists. Start static inspection immediately — do not wait for all of this.
 
+**Look for existing telemetry before asking for numbers.** Check the repo for prom-client, OpenTelemetry, Datadog, New Relic, Sentry performance, a `/metrics` route, Prisma `$metrics`, or Prometheus/Grafana in compose/k8s files (the scanner's *Telemetry* section lists them). Also check which tools you have: a Grafana, Prometheus, Datadog or database MCP server can often answer pool wait, p95 and event-loop questions directly. Use read-only queries, and say which numbers came from where. Only ask the user for metrics nothing in reach can provide.
+
 ### 2. Match the symptom signature
 
 Before reading code in depth, compare the symptom with this table. It tells you where to look first. Full detail: `references/symptom-signatures.md`.
@@ -60,8 +62,12 @@ Do not infer runtime frequency from one code occurrence. Trace call sites and ca
 
 ### 4. Run the bundled scanners (optional, read-only)
 
-- `node scripts/scan-repo.mjs <repo>` — static scan for pool configuration, PrismaClient instantiations, queries inside loops, interactive transactions, unbounded queries, queue-worker concurrency, client polling. Its output is leads, not findings; verify each in code.
-- `node scripts/conn-budget.mjs --help` — connection budget and Little's-law pool sizing from numbers you know or assume.
+- `node scripts/scan-repo.mjs <repo>` — static scan. Context: telemetry, process model (pm2 instances, `NODE_APP_INSTANCE` gating, cluster, Dockerfile, k8s replicas), PrismaClient instances and `$extends` query hooks, pool settings (including env-var-driven ones), queue workers with their processors resolved across files, scheduled jobs. Leads, ranked high/medium/low: queries in loops and callbacks, uncapped page sizes from the request, interactive transactions, unbounded `findMany` on growing models, socket handlers that query, Redis `KEYS`/missing timeouts, client polling. Its output is leads, not findings; verify each in code.
+  - `--include`/`--exclude <glob>` to focus on one deployable; `--hot-models a,b` for tables you know are large.
+  - Real `.env` files are not read unless you pass `--include-env`; do that only when the user is fine with the agent opening them (values are never printed either way).
+  - Reviewing a PR: `--changed-since origin/main --fail-on high` reports only leads on changed lines and exits 1 if any are high.
+  - Teams silence reviewed leads with `// scale-guard-ignore: <reason>`. Respect these; mention the count, not each one.
+- `node scripts/conn-budget.mjs --help` — connection budget and Little's-law pool sizing from numbers you know or assume. `--from-scan scan.json` (from `scan-repo --json`) fills in worker concurrency and client count and lists the process-model hints.
 
 Script paths are relative to this skill's directory.
 

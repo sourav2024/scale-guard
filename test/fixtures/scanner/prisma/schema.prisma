@@ -1,0 +1,15 @@
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://admin:S3cretPassw0rd@db.internal:5432/app"
+}
+
+model Load {
+  id         Int      @id
+  customerId Int
+  createdAt  DateTime @default(now())
+}
+
+model Country {
+  id   Int    @id
+  name String
+}

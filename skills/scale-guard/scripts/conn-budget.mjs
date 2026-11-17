@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 
 const HELP = `conn-budget — database connection budget and pool sizing
@@ -23,6 +24,9 @@ Options:
   --reserved <n>         connections used by admin/BI/migrations/other services (default 0)
   --headroom <pct>       headroom to keep free, percent (default 25)
   --burst <x>            burst multiplier applied to Little's-law demand (default 3)
+  --from-scan <file>     JSON from \`scan-repo --json\`: fills workers= and clients= on one tier
+                         when you did not set them (and reports pm2/replica hints)
+  --scan-tier <name>     tier that receives the scan values (default: the first tier)
   --json                 machine-readable output
   -h, --help
 
@@ -31,19 +35,61 @@ Example:
     --max-connections 90 --reserved 10
 `;
 
-function parseTier(spec) {
-  const t = { name: "tier", replicas: 1, procs: 1, clients: 1, workers: 0 };
+const TIER_KEYS = ["name", "replicas", "procs", "pool", "physical", "vcpus", "clients", "workers", "qps", "hold"];
+const INTEGER_KEYS = new Set(["replicas", "procs", "pool", "physical", "vcpus", "clients", "workers"]);
+const TIER_DEFAULTS = { name: "tier", replicas: 1, procs: 1, clients: 1, workers: 0 };
+
+export function parseTier(spec) {
+  const t = {};
   for (const part of spec.split(",")) {
-    const [k, v] = part.split("=").map((s) => s.trim());
-    if (!k) continue;
-    if (k === "name") t.name = v;
-    else {
-      const n = Number(v);
-      if (!Number.isFinite(n) || n < 0) throw new Error(`invalid number for ${k} in "${spec}"`);
-      t[k] = n;
+    if (!part.trim()) continue;
+    const eq = part.indexOf("=");
+    const k = (eq === -1 ? part : part.slice(0, eq)).trim();
+    const v = eq === -1 ? "" : part.slice(eq + 1).trim();
+    if (!TIER_KEYS.includes(k)) {
+      const near = TIER_KEYS.find((x) => x.startsWith(k.slice(0, 3)));
+      throw new Error(`unknown tier key "${k}" in "${spec}"${near ? ` (did you mean "${near}"?)` : ""}. Valid keys: ${TIER_KEYS.join(", ")}`);
     }
+    if (k in t) throw new Error(`duplicate tier key "${k}" in "${spec}"`);
+    if (k === "name") {
+      if (!v) throw new Error(`empty name in "${spec}"`);
+      t.name = v;
+      continue;
+    }
+    const n = Number(v);
+    if (v === "" || !Number.isFinite(n) || n < 0) throw new Error(`invalid number for ${k} in "${spec}": "${v}"`);
+    if (INTEGER_KEYS.has(k) && !Number.isInteger(n)) throw new Error(`${k} must be a whole number in "${spec}": "${v}"`);
+    t[k] = n;
   }
   return t;
+}
+
+/** Derive tier values from scan-repo --json output. */
+export function fromScan(scan) {
+  const hits = scan.hits ?? [];
+  const workers = hits.filter((h) => h.kind === "queue-worker");
+  const dbWorkers = workers.filter((w) => w.usesDb !== false);
+  const numeric = dbWorkers.filter((w) => typeof w.concurrency === "number");
+  const clientsByDeployable = new Map();
+  for (const h of hits) {
+    if (h.kind !== "prisma-client" || /(^|\/)(scripts|seeds?|tools)\//.test(h.file)) continue;
+    const d = h.deployable ?? "(root)";
+    clientsByDeployable.set(d, (clientsByDeployable.get(d) ?? 0) + 1);
+  }
+  const clients = clientsByDeployable.size ? Math.max(...clientsByDeployable.values()) : undefined;
+  const hints = hits.filter((h) => h.kind === "process-model").map((h) => `${h.detail} (${h.file}:${h.line})`);
+  const notes = [];
+  if (workers.length) {
+    notes.push(`workers=${numeric.reduce((s, w) => s + w.concurrency, 0)} from ${numeric.length} queue worker(s) that use or may use the DB` +
+      (workers.length - dbWorkers.length ? `; ${workers.length - dbWorkers.length} with no DB call excluded` : "") +
+      (dbWorkers.length - numeric.length ? `; ${dbWorkers.length - numeric.length} with non-literal concurrency NOT counted` : ""));
+  }
+  if (clients !== undefined) notes.push(`clients=${clients} (most PrismaClient instances in one deployable)`);
+  return {
+    values: { workers: workers.length ? numeric.reduce((s, w) => s + w.concurrency, 0) : undefined, clients },
+    notes,
+    hints,
+  };
 }
 
 function prismaDefault(t) {
@@ -53,7 +99,8 @@ function prismaDefault(t) {
 }
 
 export function computeBudget({ tiers, maxConnections, reserved = 0, headroom = 25, burst = 3 }) {
-  const rows = tiers.map((t) => {
+  const rows = tiers.map((given) => {
+    const t = { ...TIER_DEFAULTS, ...given };
     let pool = t.pool;
     let poolSource = "explicit";
     if (pool === undefined) {
@@ -121,6 +168,15 @@ function render(r) {
     out.push("Warnings:");
     out.push(...warns);
   }
+  if (r.scan) {
+    out.push("");
+    out.push(`From scan (applied to tier "${r.scan.tier}" where not set explicitly):`);
+    out.push(...(r.scan.notes.length ? r.scan.notes : ["nothing to apply"]).map((n) => `- ${n}`));
+    if (r.scan.hints.length) {
+      out.push("Process-model hints (set replicas=/procs= yourself):");
+      out.push(...r.scan.hints.slice(0, 10).map((h) => `- ${h}`));
+    }
+  }
   out.push("");
   out.push("Note: estimates only. Confirm with pool metrics and database connection counts.");
   return out.join("\n");
@@ -135,22 +191,54 @@ function main(argv) {
       reserved: { type: "string" },
       headroom: { type: "string" },
       burst: { type: "string" },
+      "from-scan": { type: "string" },
+      "scan-tier": { type: "string" },
       json: { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
   });
   if (values.help || !values.tier?.length) {
     process.stdout.write(HELP);
-    return values.help ? 0 : 1;
+    return values.help ? 0 : 2;
   }
-  const num = (v) => (v === undefined ? undefined : Number(v));
+  const num = (name, { int = false, max } = {}) => {
+    const v = values[name];
+    if (v === undefined) return undefined;
+    const n = Number(v);
+    if (v.trim() === "" || !Number.isFinite(n) || n < 0 || (int && !Number.isInteger(n)) || (max !== undefined && n > max)) {
+      throw new Error(`--${name} must be a ${int ? "whole " : ""}number${max !== undefined ? ` from 0 to ${max}` : " >= 0"}, got "${v}"`);
+    }
+    return n;
+  };
+  const tiers = values.tier.map(parseTier);
+  let scan;
+  if (values["from-scan"]) {
+    let json;
+    try {
+      json = JSON.parse(readFileSync(values["from-scan"] === "-" ? 0 : values["from-scan"], "utf8"));
+    } catch (e) {
+      throw new Error(`--from-scan: cannot read scan JSON (${e.message})`);
+    }
+    const tierName = values["scan-tier"] ?? tiers[0].name ?? TIER_DEFAULTS.name;
+    const target = tiers.find((t) => (t.name ?? TIER_DEFAULTS.name) === tierName);
+    if (!target) throw new Error(`--scan-tier "${tierName}" matches no --tier name`);
+    const derived = fromScan(json);
+    const applied = [];
+    for (const [k, v] of Object.entries(derived.values)) {
+      if (v === undefined) continue;
+      if (k in target) applied.push(`${k} kept at ${target[k]} (set explicitly; scan suggests ${v})`);
+      else target[k] = v;
+    }
+    scan = { tier: tierName, notes: [...derived.notes, ...applied], hints: derived.hints };
+  }
   const result = computeBudget({
-    tiers: values.tier.map(parseTier),
-    maxConnections: num(values["max-connections"]),
-    reserved: num(values.reserved) ?? 0,
-    headroom: num(values.headroom) ?? 25,
-    burst: num(values.burst) ?? 3,
+    tiers,
+    maxConnections: num("max-connections", { int: true }),
+    reserved: num("reserved", { int: true }) ?? 0,
+    headroom: num("headroom", { max: 99 }) ?? 25,
+    burst: num("burst") ?? 3,
   });
+  if (scan) result.scan = scan;
   process.stdout.write((values.json ? JSON.stringify(result, null, 2) : render(result)) + "\n");
   return 0;
 }

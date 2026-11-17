@@ -37,3 +37,37 @@ test("unknown pool yields unknown total", () => {
   assert.equal(r.appTotal, undefined);
   assert.equal(r.verdict, "unknown");
 });
+
+import { parseTier, fromScan } from "../skills/scale-guard/scripts/conn-budget.mjs";
+
+test("unknown or malformed tier keys are rejected", () => {
+  assert.throws(() => parseTier("name=api,replica=3"), /unknown tier key "replica".*did you mean "replicas"/);
+  assert.throws(() => parseTier("pool=abc"), /invalid number/);
+  assert.throws(() => parseTier("replicas=2.5"), /whole number/);
+  assert.throws(() => parseTier("pool=5,pool=6"), /duplicate/);
+  assert.deepEqual(parseTier("name=api,replicas=3"), { name: "api", replicas: 3 });
+});
+
+test("tiers without explicit counts get defaults", () => {
+  const r = computeBudget({ tiers: [{ name: "api", pool: 10 }] });
+  assert.equal(r.appTotal, 10);
+});
+
+test("fromScan sums DB-using worker concurrency and counts clients per deployable", () => {
+  const d = fromScan({
+    hits: [
+      { kind: "queue-worker", concurrency: 10, usesDb: true },
+      { kind: "queue-worker", concurrency: 5, usesDb: "likely" },
+      { kind: "queue-worker", concurrency: 7, usesDb: false },
+      { kind: "queue-worker", concurrency: "env.N", usesDb: "unknown" },
+      { kind: "prisma-client", file: "apps/api/a.ts", deployable: "apps/api" },
+      { kind: "prisma-client", file: "apps/api/b.ts", deployable: "apps/api" },
+      { kind: "prisma-client", file: "scripts/x.ts", deployable: "scripts" },
+      { kind: "process-model", detail: "pm2 instances=4", file: "ecosystem.config.js", line: 2 },
+    ],
+  });
+  assert.equal(d.values.workers, 15);
+  assert.equal(d.values.clients, 2);
+  assert.match(d.notes[0], /non-literal concurrency NOT counted/);
+  assert.equal(d.hints.length, 1);
+});
